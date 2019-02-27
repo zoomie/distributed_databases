@@ -1,3 +1,5 @@
 venv/
 data/
-data2/
+.vscode/
+.pytest_cache/
+__pycache__/
