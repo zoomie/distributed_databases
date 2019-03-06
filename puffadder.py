@@ -1,48 +1,58 @@
 import json
 import os
 
+
 class PuffAdder:
 
-    def __init__(self, db: str):
+    def __init__(self, db):
         mkdir = 'data/' + db
         if not os.path.exists(mkdir):
             os.makedirs(mkdir)
             with open(mkdir + '/history.puff', 'w'):
                 pass
         self.db = db
+        self.history = 'data/' + db + '/history.puff'
 
-    def set_value(self, key: str, value: dict):
-        p_key = 'data/' + self.db + '/' + key + '.json'
+    def set_value(self, key: str, value: str):
+        p_key = 'data/' + self.db + '/' + key + '.val'
         with open(p_key, 'w') as file:
-            json.dump(value, file)
+            file.write(value)
 
-        h_path = 'data/' + self.db + '/history.puff'
-        with open(h_path, "a") as file:
-            row = key + ' -- ' + str(value)
+        with open(self.history, 'a') as file:
+            row = key + ' -- ' + value
             file.write(row)
             file.write('\n')
 
     def get_value(self, key: str):
-        p_key = 'data/' + self.db + '/' + key + '.json'
+        p_key = 'data/' + self.db + '/' + key + '.val'
         with open(p_key, 'r') as file:
-            data = json.load(file)
+            data = file.read()
         return data
 
-    def sync_database(self, incoming: str):
-        local = 'data/' + self.db + '/history.puff'
-        with open(incoming, 'r') as inc_conn,\
-            open(local, 'r') as loc_conn:
-            inc = inc_conn.read().split('\n')
-            loc = loc_conn.read().split('\n')
-            number_update = len(inc) - len(loc)
-            for row in inc[number_update:]:
+    def sync_database(self, incoming_history: bytes):
+        data = incoming_history.decode('utf-8')
+        with open(self.history, 'r') as file:
+            local = file.read().split('\n')
+            # print(local)
+            # start_index = len(inc) - len(loc) + 1
+            for row in data.split('\n'):
                 if row:
                     key, value = row.split(' -- ')
                     self.set_value(key, value)
-                #     self.set_value(key, value)
 
-        # with open(history_file, 'r') as file:
-        #     for line in file.read().split('\n'):
-        #         if line:
-        #             key, value = line.split(' -- ')
-        #             self.set_value(key, value)
+    def send_heartbeat(self, *follower_list):
+        # This should in theory contain the port
+        # number and then I would be able to send
+        # the data over a socket connection.
+        with open(self.history, 'rb') as file:
+            data = file.read()
+        for follower in follower_list:
+            follower.recieve_heartbeat(data)
+
+    def recieve_heartbeat(self, data):
+        # This heart_beat should recieve the data_sync
+        # as a series of bytes and update its internal
+        # state. It should then send a signal telling
+        # the leader that it is upto date.
+        print(f'{self.db} is getting {data}')
+        self.sync_database(data)
